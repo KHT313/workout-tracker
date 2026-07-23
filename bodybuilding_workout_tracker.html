@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#111827">
+  <title>Bodybuilding Tracker</title>
+  <style>
+    :root {
+      --bg:#f5f7fb; --card:#fff; --text:#111827; --muted:#6b7280;
+      --border:#dbe1ea; --accent:#2563eb; --accent-soft:#eaf1ff;
+      --success:#15803d; --danger:#b91c1c;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+    main{max-width:760px;margin:auto;padding:calc(16px + env(safe-area-inset-top)) 14px calc(28px + env(safe-area-inset-bottom))}
+    h1{font-size:24px;margin:0 0 4px}
+    h2{font-size:20px;margin:0}
+    p{margin:0;color:var(--muted)}
+    .header{margin-bottom:16px}
+    .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}
+    .metric,.card{background:var(--card);border:1px solid var(--border);border-radius:16px}
+    .metric{padding:12px;text-align:center}
+    .metric small{display:block;color:var(--muted);font-size:12px}
+    .metric strong{display:block;font-size:20px;margin-top:4px}
+    .progress{height:10px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin:10px 0 16px}
+    .progress span{display:block;height:100%;width:0;background:var(--accent);transition:.2s}
+    .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px}
+    button,input,textarea{font:inherit}
+    button{border:1px solid var(--border);background:var(--card);border-radius:12px;padding:10px 8px;color:var(--text);cursor:pointer}
+    button.active{background:var(--accent);color:white;border-color:var(--accent)}
+    button.primary{background:var(--accent);color:white;border-color:var(--accent)}
+    button.danger{color:var(--danger)}
+    .workout-heading{display:flex;justify-content:space-between;gap:12px;align-items:end;margin-bottom:10px}
+    .exercise{padding:13px;margin-bottom:10px}
+    .exercise.completed{background:var(--accent-soft);border-color:var(--accent)}
+    .exercise-top{display:flex;align-items:flex-start;gap:10px}
+    .exercise-top input{width:22px;height:22px;margin-top:1px}
+    .exercise-name{font-weight:650;line-height:1.3}
+    .exercise.completed .exercise-name{text-decoration:line-through;opacity:.65}
+    .target{font-size:13px;color:var(--muted);margin-top:3px}
+    .fields{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:11px}
+    label{font-size:13px;color:var(--muted)}
+    input[type=number],textarea{width:100%;border:1px solid var(--border);background:white;border-radius:11px;padding:10px;margin-top:4px;color:var(--text)}
+    textarea{min-height:90px;resize:vertical}
+    .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+    .actions .primary{grid-column:1/-1}
+    .note-card{padding:14px;margin-top:16px}
+    .status{text-align:center;font-size:13px;color:var(--success);min-height:18px;margin-top:8px}
+    @media(max-width:520px){
+      .tabs{grid-template-columns:repeat(5,minmax(0,1fr))}
+      .tabs button{font-size:12px;padding:10px 2px}
+      .metrics{grid-template-columns:repeat(3,1fr)}
+      .metric{padding:10px 5px}
+      .metric strong{font-size:17px}
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="header">
+    <h1>Bodybuilding Tracker</h1>
+    <p>5-day lean-mass program • 60-minute weekday sessions</p>
+  </div>
+
+  <section class="metrics">
+    <div class="metric"><small>Day</small><strong id="dayMetric">Mon</strong></div>
+    <div class="metric"><small>Today</small><strong id="todayMetric">0/7</strong></div>
+    <div class="metric"><small>Week</small><strong id="weekMetric">0%</strong></div>
+  </section>
+
+  <div class="progress" aria-label="Weekly progress"><span id="progressBar"></span></div>
+
+  <nav class="tabs" aria-label="Workout days">
+    <button data-day="Monday">Mon</button>
+    <button data-day="Tuesday">Tue</button>
+    <button data-day="Wednesday">Wed</button>
+    <button data-day="Thursday">Thu</button>
+    <button data-day="Friday">Fri</button>
+  </nav>
+
+  <section>
+    <div class="workout-heading">
+      <div>
+        <h2 id="title"></h2>
+        <p id="subtitle"></p>
+      </div>
+      <p style="font-size:12px;text-align:right">Stop most sets<br>1–2 reps before failure</p>
+    </div>
+    <div id="exerciseList"></div>
+  </section>
+
+  <section class="card note-card">
+    <label for="notes">Session notes</label>
+    <textarea id="notes" placeholder="Energy, soreness, form cues, or what to increase next time"></textarea>
+  </section>
+
+  <section class="actions">
+    <button id="completeDay" class="primary">Complete All Exercises</button>
+    <button id="clearDay">Clear This Day</button>
+    <button id="resetWeek" class="danger">Start New Week</button>
+  </section>
+
+  <div id="status" class="status" aria-live="polite"></div>
+</main>
+
+<script>
+const workouts = {
+  Monday:{title:"Monday — Push",subtitle:"Chest focus",exercises:[
+    ["Incline Dumbbell Press",4,"6–10"],["Flat Dumbbell Press",4,"8–12"],
+    ["Machine Chest Press",3,"10–12"],["Seated Dumbbell Shoulder Press",3,"8–12"],
+    ["Dumbbell Lateral Raise",4,"12–20"],["Rope Triceps Pushdown",3,"10–15"],
+    ["Overhead Rope Extension",2,"12–15"]]},
+  Tuesday:{title:"Tuesday — Pull",subtitle:"Back and biceps",exercises:[
+    ["Lat Pulldown",4,"8–12"],["Seated Cable Row",4,"8–12"],
+    ["Chest-Supported Dumbbell Row",3,"10–12"],["Face Pull",3,"15"],
+    ["EZ-Bar Curl",3,"8–10"],["Incline Dumbbell Curl",3,"10–12"],["Hammer Curl",2,"12"]]},
+  Wednesday:{title:"Wednesday — Legs",subtitle:"Quads, hamstrings, calves and core",exercises:[
+    ["Bulgarian Split Squat",4,"8–10 each"],["Romanian Deadlift",4,"8–10"],
+    ["Goblet Squat",3,"10–12"],["Leg Extension",3,"12–15"],["Leg Curl",3,"12–15"],
+    ["Standing Calf Raise",5,"12–20"],["Bench Leg Raise",3,"15"],["Tibialis Raise",2,"15–20"]]},
+  Thursday:{title:"Thursday — Upper Growth",subtitle:"Chest, back, shoulders and arms",exercises:[
+    ["Incline Dumbbell Press",3,"10–12"],["Lat Pulldown",3,"10–12"],
+    ["Flat Dumbbell Press",3,"10–12"],["One-Arm Dumbbell Row",3,"10 each"],
+    ["Dumbbell Shoulder Press",3,"10"],["Dumbbell Lateral Raise",5,"15–20"],
+    ["Rope Pushdown",3,"12"],["EZ-Bar Curl",3,"12"]]},
+  Friday:{title:"Friday — Arms & Shoulders",subtitle:"Specialization day",exercises:[
+    ["Seated Dumbbell Shoulder Press",4,"8–10"],["Dumbbell Lateral Raise",5,"15–20"],
+    ["Rear-Delt Fly",4,"15"],["EZ-Bar Curl",4,"8–10"],["Incline Dumbbell Curl",3,"10–12"],
+    ["Hammer Curl",3,"12"],["Rope Pushdown",4,"10–12"],
+    ["Overhead Rope Extension",3,"12–15"],["Push-Ups",2,"AMRAP"]]}
+};
+
+const KEY="bodybuildingTrackerV1";
+const freshState=()=>({
+  selectedDay:"Monday",
+  entries:Object.fromEntries(Object.entries(workouts).map(([d,w])=>[
+    d,w.exercises.map(()=>({complete:false,weight:"",reps:""}))
+  ])),
+  notes:Object.fromEntries(Object.keys(workouts).map(d=>[d,""]))
+});
+
+let state;
+try { state=JSON.parse(localStorage.getItem(KEY)) || freshState(); }
+catch { state=freshState(); }
+
+function save(message="Progress saved"){
+  localStorage.setItem(KEY,JSON.stringify(state));
+  const el=document.getElementById("status");
+  el.textContent=message;
+  clearTimeout(window.statusTimer);
+  window.statusTimer=setTimeout(()=>el.textContent="",1800);
+}
+
+function render(){
+  const day=state.selectedDay;
+  const workout=workouts[day];
+  document.getElementById("title").textContent=workout.title;
+  document.getElementById("subtitle").textContent=workout.subtitle;
+  document.getElementById("dayMetric").textContent=day.slice(0,3);
+  document.getElementById("notes").value=state.notes[day] || "";
+
+  document.querySelectorAll("[data-day]").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.day===day);
+  });
+
+  const list=document.getElementById("exerciseList");
+  list.innerHTML="";
+  workout.exercises.forEach((ex,i)=>{
+    const entry=state.entries[day][i];
+    const card=document.createElement("article");
+    card.className="card exercise"+(entry.complete?" completed":"");
+    card.innerHTML=`
+      <div class="exercise-top">
+        <input type="checkbox" aria-label="Complete ${ex[0]}" ${entry.complete?"checked":""}>
+        <div>
+          <div class="exercise-name">${ex[0]}</div>
+          <div class="target">${ex[1]} sets • ${ex[2]} reps</div>
+        </div>
+      </div>
+      <div class="fields">
+        <label>Weight (lb)
+          <input class="weight" type="number" inputmode="decimal" min="0" step="0.5" value="${entry.weight}" placeholder="0">
+        </label>
+        <label>Best reps
+          <input class="reps" type="number" inputmode="numeric" min="0" step="1" value="${entry.reps}" placeholder="0">
+        </label>
+      </div>`;
+    card.querySelector('input[type=checkbox]').addEventListener("change",e=>{
+      entry.complete=e.target.checked; save(); render();
+    });
+    card.querySelector(".weight").addEventListener("input",e=>{entry.weight=e.target.value; save("Weight saved");});
+    card.querySelector(".reps").addEventListener("input",e=>{entry.reps=e.target.value; save("Reps saved");});
+    list.appendChild(card);
+  });
+  updateMetrics();
+}
+
+function updateMetrics(){
+  const dayEntries=state.entries[state.selectedDay];
+  const dayDone=dayEntries.filter(x=>x.complete).length;
+  const all=Object.values(state.entries).flat();
+  const done=all.filter(x=>x.complete).length;
+  const pct=Math.round(done/all.length*100);
+  document.getElementById("todayMetric").textContent=`${dayDone}/${dayEntries.length}`;
+  document.getElementById("weekMetric").textContent=`${pct}%`;
+  document.getElementById("progressBar").style.width=`${pct}%`;
+}
+
+document.querySelectorAll("[data-day]").forEach(btn=>btn.addEventListener("click",()=>{
+  state.notes[state.selectedDay]=document.getElementById("notes").value;
+  state.selectedDay=btn.dataset.day; save("Day changed"); render();
+}));
+document.getElementById("notes").addEventListener("input",e=>{state.notes[state.selectedDay]=e.target.value;save("Notes saved");});
+document.getElementById("completeDay").addEventListener("click",()=>{
+  state.entries[state.selectedDay].forEach(x=>x.complete=true);save("Workout completed");render();
+});
+document.getElementById("clearDay").addEventListener("click",()=>{
+  state.entries[state.selectedDay].forEach(x=>x.complete=false);save("Day cleared");render();
+});
+document.getElementById("resetWeek").addEventListener("click",()=>{
+  if(!confirm("Start a new week? Checkmarks and notes will reset. Logged weights and reps will remain.")) return;
+  Object.keys(state.entries).forEach(day=>{
+    state.entries[day].forEach(x=>x.complete=false);
+    state.notes[day]="";
+  });
+  save("New week started");render();
+});
+render();
+</script>
+</body>
+</html>
